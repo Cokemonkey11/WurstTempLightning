@@ -1,0 +1,71 @@
+package WurstTempLightning
+
+import ClosureTimers
+import LinkedListModule
+
+
+tuple vec3_or_unit(bool is_vec3, vec3 where, unit which)
+function vec3_or_unit.to_vec3() returns vec3
+    return this.is_vec3 ? this.where : this.which.getPos3Real()
+function vec3_or_unit.is_vec3() returns bool
+    return this.is_vec3
+
+constant z_50 = vec3(0., 0., 50.)
+
+public class TempLightning
+    use LinkedListModule
+
+    vec3_or_unit start_v
+    vec3_or_unit end_v
+    real initial_duration
+    real duration_left
+    lightning bolt
+    string style
+
+    static function ring(vec3 center, real radius, real duration, string style, int seg)
+        let segments = max(3, seg)
+
+        for i = 0 to segments
+            new TempLightning(
+                center.offset2d(angle(2. * PI * i / segments), radius),
+                center.offset2d(angle(2. * PI * (i + 1) / segments), radius),
+                duration,
+                style
+            )
+
+    static function ring(vec3 center, real radius, real duration, string style)
+        ring(center, radius, duration, style, (2. * radius * PI / 100.).toInt())
+
+    ondestroy
+        this.bolt.destr()
+
+    private function ctor(vec3_or_unit start, vec3_or_unit _end, real duration, string style)
+        this.start_v = start
+        this.end_v = _end
+        this.initial_duration = duration
+        this.duration_left = duration
+        this.style = style
+        this.bolt = addLightning(style, true, start.to_vec3(), _end.to_vec3())
+
+        if size == 1
+            doPeriodically(ANIMATION_PERIOD) cb ->
+                for templ from staticItr()
+                    let a = (templ.duration_left / templ.initial_duration * 255).toInt()
+                    templ.bolt.setColor(colorA(255, 255, 255, a))
+
+                    if not templ.start_v.is_vec3()
+                        templ.bolt.move(true, templ.start_v.to_vec3() + z_50, templ.end_v.to_vec3() + z_50)
+
+                    templ.duration_left -= ANIMATION_PERIOD
+
+                    if templ.duration_left <= 0.
+                        destroy templ
+
+                if size == 0
+                    destroy cb
+
+    construct(vec3 start, vec3 _end, real duration, string style)
+        ctor(vec3_or_unit(true, start, null), vec3_or_unit(true, _end, null), duration, style)
+
+    construct(unit start, unit _end, real duration, string style)
+        ctor(vec3_or_unit(false, ZERO3, start), vec3_or_unit(false, ZERO3, _end), duration, style)
